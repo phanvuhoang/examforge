@@ -34,8 +34,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     supervisor \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy Node.js 20 binary from the builder stage
+# Copy Node.js runtime from builder stage (binary + libs)
 COPY --from=frontend-builder /usr/local/bin/node /usr/local/bin/node
+COPY --from=frontend-builder /usr/local/lib/libstdc++* /usr/local/lib/ 2>/dev/null || true
 
 # ---- Python backend ----
 WORKDIR /app/backend
@@ -44,10 +45,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY backend/ .
 
 # ---- Next.js frontend (standalone) ----
-WORKDIR /app/frontend
-COPY --from=frontend-builder /app/frontend/public ./public
-COPY --from=frontend-builder /app/frontend/.next/standalone ./
-COPY --from=frontend-builder /app/frontend/.next/static ./.next/static
+# Standalone output: .next/standalone/ contains server.js + node_modules + app structure
+# We copy the ENTIRE standalone output to /app (preserving the directory structure)
+COPY --from=frontend-builder /app/frontend/.next/standalone /app
+# Static assets and public files
+COPY --from=frontend-builder /app/frontend/public /app/frontend/public
+COPY --from=frontend-builder /app/frontend/.next/static /app/frontend/.next/static
 
 # ---- Supervisor config ----
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
