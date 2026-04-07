@@ -5,7 +5,7 @@
 # ==============================================================
 
 # ---- Stage 1: Build Next.js frontend ----
-FROM node:20-alpine AS frontend-builder
+FROM node:20-slim AS frontend-builder
 WORKDIR /app/frontend
 COPY frontend/package.json frontend/package-lock.json* ./
 RUN npm ci --ignore-scripts 2>/dev/null || npm install
@@ -34,8 +34,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     supervisor \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy Node.js runtime from builder stage
+# Copy Node.js 20 from builder (both are Debian/glibc — compatible)
 COPY --from=frontend-builder /usr/local/bin/node /usr/local/bin/node
+COPY --from=frontend-builder /usr/local/include/node /usr/local/include/node
 
 # ---- Python backend ----
 WORKDIR /app/backend
@@ -44,10 +45,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY backend/ .
 
 # ---- Next.js frontend (standalone) ----
-# Standalone output: .next/standalone/ contains server.js + node_modules + app structure
-# We copy the ENTIRE standalone output to /app (preserving the directory structure)
 COPY --from=frontend-builder /app/frontend/.next/standalone /app
-# Static assets and public files
 COPY --from=frontend-builder /app/frontend/public /app/frontend/public
 COPY --from=frontend-builder /app/frontend/.next/static /app/frontend/.next/static
 
