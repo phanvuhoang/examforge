@@ -45,7 +45,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY backend/ .
 
 # ---- Next.js frontend (standalone) ----
-COPY --from=frontend-builder /app/frontend/.next/standalone /app
+WORKDIR /app
+COPY --from=frontend-builder /app/frontend/.next/standalone /app/frontend/.next/
 COPY --from=frontend-builder /app/frontend/public /app/frontend/public
 COPY --from=frontend-builder /app/frontend/.next/static /app/frontend/.next/static
 
