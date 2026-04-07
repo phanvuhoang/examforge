@@ -12,9 +12,15 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const { isAuthenticated, user, fetchUser } = useAuthStore();
+  const { isAuthenticated, user, fetchUser, _hasHydrated } = useAuthStore();
 
   useEffect(() => {
+    // Rehydrate store từ localStorage khi client mount
+    useAuthStore.persist.rehydrate();
+  }, []);
+
+  useEffect(() => {
+    if (!_hasHydrated) return; // chờ hydration xong
     if (!isAuthenticated) {
       router.push("/login");
       return;
@@ -22,7 +28,16 @@ export default function DashboardLayout({
     if (!user) {
       fetchUser();
     }
-  }, [isAuthenticated, user, fetchUser, router]);
+  }, [isAuthenticated, user, fetchUser, router, _hasHydrated]);
+
+  // Chưa hydrate xong → spinner (không redirect vội)
+  if (!_hasHydrated) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     return (
