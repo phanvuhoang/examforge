@@ -46,7 +46,11 @@ COPY backend/ .
 
 # ---- Next.js frontend (standalone) ----
 WORKDIR /app
-COPY --from=frontend-builder /app/frontend/.next/standalone /app/frontend/.next/
+# standalone/ contains a self-contained app — copy its contents into /app
+# so /app/server.js and /app/.next/ are at the right paths
+WORKDIR /app
+COPY --from=frontend-builder /app/frontend/.next/standalone/ /app/
+# Overlay public assets and static chunks (not included in standalone)
 COPY --from=frontend-builder /app/frontend/public /app/frontend/public
 COPY --from=frontend-builder /app/frontend/.next/static /app/frontend/.next/static
 
