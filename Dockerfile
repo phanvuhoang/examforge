@@ -49,7 +49,7 @@ WORKDIR /app
 COPY --from=frontend-builder /app/frontend/.next/standalone/ /app/
 # Overlay public assets and static chunks (not included in standalone)
 COPY --from=frontend-builder /app/frontend/public /app/frontend/public
-COPY --from=frontend-builder /app/frontend/.next/static /app/frontend/.next/static
+COPY --from=frontend-builder /app/frontend/.next/static /app/.next/static
 
 # ---- Supervisor config ----
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
