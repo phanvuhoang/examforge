@@ -34,9 +34,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     supervisor \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy Node.js runtime from builder stage (binary + libs)
+# Copy Node.js runtime from builder stage
 COPY --from=frontend-builder /usr/local/bin/node /usr/local/bin/node
-COPY --from=frontend-builder /usr/local/lib/libstdc++* /usr/local/lib/ 2>/dev/null || true
 
 # ---- Python backend ----
 WORKDIR /app/backend
