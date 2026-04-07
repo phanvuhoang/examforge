@@ -25,7 +25,7 @@ PROVIDER_CONFIGS = {
     "openrouter": {
         "env_key": "OPENROUTER_API_KEY",
         "base_url": "https://openrouter.ai/api/v1",
-        "default_model": settings.AI_DEFAULT_MODEL,
+        "default_model": "qwen/qwen3-235b-a22b-2507",
     },
     "deepseek": {
         "env_key": "DEEPSEEK_API_KEY",
