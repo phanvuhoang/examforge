@@ -1,10 +1,10 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import { NextIntlClientProvider } from 'next-intl';
-import { getLocale, getMessages } from 'next-intl/server';
 import { ThemeProvider } from '@/components/layout/theme-provider';
 import { Toaster } from '@/components/ui/toaster';
 import './globals.css';
+import messages from '../../messages/vi.json';
 
 const inter = Inter({ subsets: ['latin', 'vietnamese'] });
 
@@ -13,18 +13,15 @@ export const metadata: Metadata = {
   description: 'Tạo đề thi, ngân hàng câu hỏi tự động bằng AI. Hỗ trợ 10 loại câu hỏi, nhập/xuất Excel, phân tích kết quả.',
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const locale = await getLocale();
-  const messages = await getMessages();
-
   return (
-    <html lang={locale} suppressHydrationWarning>
+    <html lang="vi" suppressHydrationWarning>
       <body className={inter.className}>
-        <NextIntlClientProvider messages={messages}>
+        <NextIntlClientProvider locale="vi" messages={messages}>
           <ThemeProvider
             attribute="class"
             defaultTheme="light"
