@@ -47,7 +47,12 @@ def _get_provider_key(provider: str) -> str | None:
     cfg = PROVIDER_CONFIGS.get(provider, {})
     env_key = cfg.get("env_key")
     if env_key:
-        return getattr(settings, env_key, None)
+        key = getattr(settings, env_key, None)
+        # For anthropic: if using a custom base_url (e.g. claudible proxy),
+        # the base_url itself provides auth — treat as available even without a real key
+        if not key and provider == "anthropic" and settings.ANTHROPIC_BASE_URL:
+            return "proxy"
+        return key
     if provider == "ollama":
         return "ollama"
     return None
@@ -146,7 +151,11 @@ async def _call_anthropic(
 ) -> dict | AsyncGenerator:
     api_key = settings.ANTHROPIC_API_KEY
     if not api_key:
-        raise ValueError("ANTHROPIC_API_KEY not set")
+        if settings.ANTHROPIC_BASE_URL:
+            # Using proxy (e.g. claudible) — base_url handles auth, use placeholder key
+            api_key = "proxy"
+        else:
+            raise ValueError("ANTHROPIC_API_KEY not set")
 
     kwargs = {}
     if settings.ANTHROPIC_BASE_URL:
@@ -265,8 +274,10 @@ async def call_ai(
     if temperature is None:
         temperature = settings.AI_TEMPERATURE
 
-    provider = provider or settings.AI_DEFAULT_PROVIDER
-    model = model or settings.AI_DEFAULT_MODEL
+    default_provider, default_model = settings.ai_provider_and_model
+    provider = provider or default_provider
+    model = model or default_model
+    logger.info(f"AI call: provider={provider}, model={model}")
 
     chain = [provider] + [p for p in settings.fallback_chain_list if p != provider]
 

@@ -24,7 +24,7 @@ class Settings(BaseSettings):
 
     # JWT
     JWT_ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
     # AI Providers
@@ -54,6 +54,19 @@ class Settings(BaseSettings):
     SMTP_USER: Optional[str] = None
     SMTP_PASS: Optional[str] = None
     FROM_EMAIL: str = "noreply@gpt4vn.com"
+
+    @property
+    def ai_provider_and_model(self) -> tuple[str, str]:
+        """Parse AI_DEFAULT_MODEL if it contains provider prefix like 'anthropic/model-name'"""
+        model = self.AI_DEFAULT_MODEL
+        provider = self.AI_DEFAULT_PROVIDER
+        if '/' in model and not model.startswith('gpt') and not model.startswith('claude'):
+            known_providers = {'openai', 'anthropic', 'openrouter', 'deepseek', 'google', 'ollama'}
+            parts = model.split('/', 1)
+            if parts[0] in known_providers:
+                provider = parts[0]
+                model = parts[1]
+        return provider, model
 
     @property
     def allowed_origins_list(self) -> list[str]:

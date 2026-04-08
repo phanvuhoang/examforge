@@ -137,8 +137,8 @@ app.include_router(jobs_router)
 @app.on_event("startup")
 async def startup_event():
     logger.info("ExamForge AI backend starting up...")
-    logger.info(f"AI default provider: {settings.AI_DEFAULT_PROVIDER}")
-    logger.info(f"AI default model: {settings.AI_DEFAULT_MODEL}")
+    provider, model = settings.ai_provider_and_model
+    logger.info(f"AI config: provider={provider}, model={model}")
 
 
 @app.on_event("shutdown")

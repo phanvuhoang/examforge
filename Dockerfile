@@ -54,10 +54,6 @@ COPY --from=frontend-builder /app/frontend/.next/static /app/.next/static
 # ---- Supervisor config ----
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
-# ---- Health check ----
-HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=5 \
-    CMD curl -f http://localhost:8000/api/health || exit 1
-
 # Coolify proxies to a single port — expose 3000 (frontend)
 # Next.js rewrites /api/* to localhost:8000 internally
 EXPOSE 3000

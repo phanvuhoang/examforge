@@ -9,6 +9,7 @@ interface AuthState {
   refreshToken: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  _hasHydrated: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -24,6 +25,7 @@ export const useAuthStore = create<AuthState>()(
       refreshToken: null,
       isAuthenticated: false,
       isLoading: false,
+      _hasHydrated: false,
 
       login: async (email: string, password: string) => {
         set({ isLoading: true });
@@ -68,8 +70,12 @@ export const useAuthStore = create<AuthState>()(
         try {
           const { data } = await api.get('/api/auth/me');
           set({ user: data, isAuthenticated: true });
-        } catch {
-          set({ user: null, isAuthenticated: false });
+        } catch (error: any) {
+          // Only clear auth if server explicitly says unauthorized
+          if (error?.response?.status === 401) {
+            set({ user: null, isAuthenticated: false, accessToken: null, refreshToken: null });
+          }
+          // Network errors, 5xx, etc → keep session alive
         }
       },
 
@@ -85,6 +91,9 @@ export const useAuthStore = create<AuthState>()(
         user: state.user,
         isAuthenticated: state.isAuthenticated,
       }),
+      onRehydrateStorage: () => () => {
+        useAuthStore.setState({ _hasHydrated: true });
+      },
     }
   )
 );
