@@ -50,6 +50,8 @@ COPY --from=frontend-builder /app/frontend/.next/standalone/ /app/
 # Overlay public assets and static chunks (not included in standalone)
 COPY --from=frontend-builder /app/frontend/public /app/frontend/public
 COPY --from=frontend-builder /app/frontend/.next/static /app/.next/static
+# Custom server to decode %28..%29 → (..) for route-group chunk paths
+COPY frontend/server-custom.js /app/server-custom.js
 
 # ---- Supervisor config ----
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
