@@ -1,36 +1,25 @@
-const { createServer } = require('http');
+// Wrapper around Next.js standalone server.js
+// Patches HTTP request URL to decode %28/%29 → () for route-group chunks
+const http = require('http');
 const { parse } = require('url');
-const next = require('next');
 
-const hostname = process.env.HOSTNAME || '0.0.0.0';
-const port = parseInt(process.env.PORT || '3000', 10);
+// Monkey-patch http.createServer to intercept all requests
+const _createServer = http.createServer.bind(http);
+http.createServer = function(opts, handler) {
+  const wrappedHandler = typeof opts === 'function' ? opts : handler;
+  const wrappedOpts = typeof opts === 'function' ? undefined : opts;
 
-const app = next({
-  dir: __dirname,
-  hostname,
-  port,
-  customServer: true,
-});
-const handle = app.getRequestHandler();
-
-app.prepare().then(() => {
-  createServer(async (req, res) => {
-    try {
-      // Decode percent-encoded parens so Next.js can serve chunks like
-      // /_next/static/chunks/app/(dashboard)/layout-xxx.js correctly.
-      // Browsers request %28dashboard%29 but standalone server only matches ().
-      if (req.url) {
-        req.url = decodeURIComponent(req.url);
-      }
-      const parsedUrl = parse(req.url, true);
-      await handle(req, res, parsedUrl);
-    } catch (err) {
-      console.error('Error occurred handling', req.url, err);
-      res.statusCode = 500;
-      res.end('internal server error');
+  const patchedHandler = function(req, res) {
+    if (req.url) {
+      req.url = req.url.replace(/%28/g, '(').replace(/%29/g, ')');
     }
-  }).listen(port, hostname, (err) => {
-    if (err) throw err;
-    console.log(`> Ready on http://${hostname}:${port}`);
-  });
-});
+    return wrappedHandler(req, res);
+  };
+
+  return wrappedOpts
+    ? _createServer(wrappedOpts, patchedHandler)
+    : _createServer(patchedHandler);
+};
+
+// Now load the real standalone server
+require('./server.js');
