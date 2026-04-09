@@ -35,4 +35,4 @@ COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 EXPOSE 3000
 
 WORKDIR /app
-CMD [/usr/bin/supervisord, -c, /etc/supervisor/conf.d/supervisord.conf]
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
