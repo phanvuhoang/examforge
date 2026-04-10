@@ -30,6 +30,7 @@ COPY --from=frontend-builder /app/frontend/.next/static /app/.next/static
 
 # Copy URL-decode patch wrapper
 COPY frontend/server-custom.js /app/server-custom.js
+COPY frontend/server-patch.js /app/server-patch.js
 
 # ---- Supervisor config ----
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
