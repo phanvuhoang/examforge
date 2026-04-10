@@ -1,34 +1,30 @@
-// Custom Next.js server with URL decode for route-group chunks
-const { createServer } = require('http');
-const { parse } = require('url');
-const next = require('next');
+// Inject URL decode patch into Next.js standalone server
+// Must run BEFORE require('next/dist/server/lib/start-server') in server.js
+const http = require('http');
+const https = require('https');
 
-const dev = process.env.NODE_ENV !== 'production';
-const hostname = process.env.HOSTNAME || 'localhost';
-const port = parseInt(process.env.PORT || '3000', 10);
+// Patch both http and https createServer
+['http', 'https'].forEach(mod => {
+  const m = require(mod);
+  const orig = m.createServer.bind(m);
+  m.createServer = function(opts, handler) {
+    const isHandler = typeof opts === 'function';
+    const realHandler = isHandler ? opts : handler;
+    const realOpts = isHandler ? undefined : opts;
 
-const app = next({ dev, hostname, port });
-const handle = app.getRequestHandler();
-
-app.prepare().then(() => {
-  createServer(async (req, res) => {
-    try {
-      let decodedUrl = req.url;
-      if (decodedUrl && decodedUrl.includes('%28')) {
-        decodedUrl = decodedUrl.replace(/%28/g, '(').replace(/%29/g, ')');
-        console.log(`[URL Decode] ${req.url} → ${decodedUrl}`);
-        req.url = decodedUrl;
+    function patchedHandler(req, res) {
+      if (req.url && req.url.includes('%28')) {
+        req.url = req.url.replace(/%28/gi, '(').replace(/%29/gi, ')');
       }
-      const parsedUrl = parse(req.url, true);
-      await handle(req, res, parsedUrl);
-    } catch (err) {
-      console.error('Server error:', err);
-      res.statusCode = 500;
-      res.end('Internal server error');
+      return realHandler.call(this, req, res);
     }
-  }).listen(port, (err) => {
-    if (err) throw err;
-    console.log(`✓ Ready in ${Date.now()}ms`);
-    console.log(`- Network:      http://${hostname}:${port}`);
-  });
+
+    if (realOpts !== undefined) {
+      return orig(realOpts, patchedHandler);
+    }
+    return orig(patchedHandler);
+  };
 });
+
+// Load the actual standalone server
+require('./server.js');
