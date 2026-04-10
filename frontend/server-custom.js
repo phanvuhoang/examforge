@@ -1,2 +1,3 @@
-// Simple wrapper: just load server.js from standalone
+// Load URL decode patch BEFORE server.js loads
+require('./server-patch.js');
 require('./server.js');
