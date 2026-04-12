@@ -36,7 +36,12 @@ export const useAuthStore = create<AuthState>()(
             refreshToken: data.refresh_token,
             isAuthenticated: true,
           });
-          await get().fetchUser();
+          // Fetch user after successful login — errors are non-fatal here
+          try {
+            await get().fetchUser();
+          } catch {
+            // User fetch can fail due to network issues, keep session alive
+          }
         } finally {
           set({ isLoading: false });
         }
@@ -71,11 +76,19 @@ export const useAuthStore = create<AuthState>()(
           const { data } = await api.get('/api/auth/me');
           set({ user: data, isAuthenticated: true });
         } catch (error: any) {
-          // Only clear auth if server explicitly says unauthorized
+          // The axios interceptor handles 401 → refresh → retry automatically.
+          // If we reach here with 401, it means refresh also failed.
+          // Only then clear the session.
           if (error?.response?.status === 401) {
-            set({ user: null, isAuthenticated: false, accessToken: null, refreshToken: null });
+            // Double-check: only clear if we truly have no valid tokens left
+            const state = get();
+            if (!state.accessToken && !state.refreshToken) {
+              set({ user: null, isAuthenticated: false });
+            }
+            // If tokens still exist, the interceptor may have already refreshed them.
+            // Don't clear auth state in that case — the retry should have succeeded.
           }
-          // Network errors, 5xx, etc → keep session alive
+          // Network errors, 5xx, etc → keep session alive, just don't set user
         }
       },
 

@@ -9,22 +9,34 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { useProjectStore } from "@/stores/project-store";
 import api from "@/lib/api";
 import { formatDate, QUESTION_TYPE_LABELS, DIFFICULTY_COLORS } from "@/lib/utils";
 import { Question, Document as DocType, Exam } from "@/types";
-import { FileText, BookOpen, ClipboardList, BarChart3, Upload, Sparkles, Loader2, ArrowLeft, Trash2 } from "lucide-react";
+import { FileText, BookOpen, ClipboardList, BarChart3, Upload, Sparkles, Loader2, ArrowLeft, Trash2, Pencil } from "lucide-react";
 
 export default function ProjectDetailPage() {
   const t = useTranslations();
   const params = useParams();
   const router = useRouter();
   const projectId = params.id as string;
-  const { currentProject, fetchProject, isLoading: projectLoading } = useProjectStore();
+  const { currentProject, fetchProject, updateProject, deleteProject, isLoading: projectLoading } = useProjectStore();
   const [documents, setDocuments] = useState<DocType[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [exams, setExams] = useState<Exam[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Edit dialog state
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+
+  // Delete dialog state
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
 
   useEffect(() => {
     fetchProject(projectId);
@@ -47,6 +59,24 @@ export default function ProjectDetailPage() {
     fetchData();
   }, [projectId, fetchProject]);
 
+  const openEdit = () => {
+    setEditName(currentProject?.name || "");
+    setEditDescription(currentProject?.description || "");
+    setIsEditOpen(true);
+  };
+
+  const handleEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editName.trim()) return;
+    await updateProject(projectId, { name: editName, description: editDescription });
+    setIsEditOpen(false);
+  };
+
+  const handleDelete = async () => {
+    await deleteProject(projectId);
+    router.push("/projects");
+  };
+
   if (projectLoading || loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -67,6 +97,12 @@ export default function ProjectDetailPage() {
             <p className="text-muted-foreground mt-1">{currentProject.description}</p>
           )}
         </div>
+        <Button variant="outline" size="icon" onClick={openEdit} title={t("common.edit")}>
+          <Pencil className="h-4 w-4" />
+        </Button>
+        <Button variant="outline" size="icon" className="text-destructive hover:text-destructive" onClick={() => setIsDeleteOpen(true)} title={t("common.delete")}>
+          <Trash2 className="h-4 w-4" />
+        </Button>
         <Button asChild>
           <Link href={`/projects/${projectId}/generate`}>
             <Sparkles className="mr-2 h-4 w-4" />
@@ -260,6 +296,60 @@ export default function ProjectDetailPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Edit Project Dialog */}
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent>
+          <form onSubmit={handleEdit}>
+            <DialogHeader>
+              <DialogTitle>{t("common.edit")} {t("projects.title").toLowerCase()}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-proj-name">{t("projects.name")}</Label>
+                <Input
+                  id="edit-proj-name"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-proj-desc">{t("common.description")}</Label>
+                <Textarea
+                  id="edit-proj-desc"
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setIsEditOpen(false)}>
+                {t("common.cancel")}
+              </Button>
+              <Button type="submit">{t("common.save")}</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("common.delete")} {t("projects.title").toLowerCase()}</DialogTitle>
+            <DialogDescription>{t("projects.deleteConfirm")}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setIsDeleteOpen(false)}>
+              {t("common.cancel")}
+            </Button>
+            <Button type="button" variant="destructive" onClick={handleDelete}>
+              {t("common.delete")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

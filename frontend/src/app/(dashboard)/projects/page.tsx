@@ -13,33 +13,66 @@ import { useProjectStore } from "@/stores/project-store";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, FolderOpen, BookOpen, ClipboardList, FileText, Loader2, Search } from "lucide-react";
+import { Plus, FolderOpen, BookOpen, ClipboardList, FileText, Loader2, Search, Pencil, Trash2 } from "lucide-react";
 
-const createProjectSchema = z.object({
+const projectSchema = z.object({
   name: z.string().min(1, "Tên dự án là bắt buộc"),
   description: z.string().optional(),
 });
 
-type CreateProjectForm = z.infer<typeof createProjectSchema>;
+type ProjectForm = z.infer<typeof projectSchema>;
 
 export default function ProjectsPage() {
   const t = useTranslations();
-  const { projects, isLoading, fetchProjects, createProject } = useProjectStore();
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const { projects, isLoading, fetchProjects, createProject, updateProject, deleteProject } = useProjectStore();
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editingProject, setEditingProject] = useState<string | null>(null);
+  const [deletingProject, setDeletingProject] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<CreateProjectForm>({
-    resolver: zodResolver(createProjectSchema),
+  const createForm = useForm<ProjectForm>({
+    resolver: zodResolver(projectSchema),
+  });
+
+  const editForm = useForm<ProjectForm>({
+    resolver: zodResolver(projectSchema),
   });
 
   useEffect(() => {
     fetchProjects();
   }, [fetchProjects]);
 
-  const onCreateProject = async (data: CreateProjectForm) => {
+  const onCreateProject = async (data: ProjectForm) => {
     await createProject(data);
-    setIsDialogOpen(false);
-    reset();
+    setIsCreateOpen(false);
+    createForm.reset();
+  };
+
+  const onEditProject = async (data: ProjectForm) => {
+    if (!editingProject) return;
+    await updateProject(editingProject, data);
+    setEditingProject(null);
+    editForm.reset();
+  };
+
+  const onDeleteProject = async () => {
+    if (!deletingProject) return;
+    await deleteProject(deletingProject);
+    setDeletingProject(null);
+  };
+
+  const openEdit = (e: React.MouseEvent, project: { id: string; name: string; description?: string | null }) => {
+    e.preventDefault();
+    e.stopPropagation();
+    editForm.setValue("name", project.name);
+    editForm.setValue("description", project.description || "");
+    setEditingProject(project.id);
+  };
+
+  const openDelete = (e: React.MouseEvent, projectId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDeletingProject(projectId);
   };
 
   const filteredProjects = projects.filter((p) =>
@@ -58,7 +91,7 @@ export default function ProjectsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-3xl font-bold tracking-tight">{t("projects.title")}</h2>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
           <DialogTrigger asChild>
             <Button>
               <Plus className="mr-2 h-4 w-4" />
@@ -66,24 +99,26 @@ export default function ProjectsPage() {
             </Button>
           </DialogTrigger>
           <DialogContent>
-            <form onSubmit={handleSubmit(onCreateProject)}>
+            <form onSubmit={createForm.handleSubmit(onCreateProject)}>
               <DialogHeader>
                 <DialogTitle>{t("projects.create")}</DialogTitle>
                 <DialogDescription>{t("projects.description")}</DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name">{t("projects.name")}</Label>
-                  <Input id="name" {...register("name")} />
-                  {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
+                  <Label htmlFor="create-name">{t("projects.name")}</Label>
+                  <Input id="create-name" {...createForm.register("name")} />
+                  {createForm.formState.errors.name && (
+                    <p className="text-sm text-destructive">{createForm.formState.errors.name.message}</p>
+                  )}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="description">{t("common.description")}</Label>
-                  <Textarea id="description" {...register("description")} />
+                  <Label htmlFor="create-description">{t("common.description")}</Label>
+                  <Textarea id="create-description" {...createForm.register("description")} />
                 </div>
               </div>
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)}>
                   {t("common.cancel")}
                 </Button>
                 <Button type="submit">{t("common.create")}</Button>
@@ -110,7 +145,7 @@ export default function ProjectsPage() {
           <CardContent className="flex flex-col items-center justify-center py-12">
             <FolderOpen className="h-12 w-12 text-muted-foreground mb-4" />
             <p className="text-lg font-medium text-muted-foreground">{t("projects.noProjects")}</p>
-            <Button className="mt-4" onClick={() => setIsDialogOpen(true)}>
+            <Button className="mt-4" onClick={() => setIsCreateOpen(true)}>
               <Plus className="mr-2 h-4 w-4" />
               {t("projects.create")}
             </Button>
@@ -122,10 +157,32 @@ export default function ProjectsPage() {
             <Link key={project.id} href={`/projects/${project.id}`}>
               <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <FolderOpen className="h-5 w-5 text-primary" />
-                    {project.name}
-                  </CardTitle>
+                  <div className="flex items-start justify-between">
+                    <CardTitle className="flex items-center gap-2 flex-1 min-w-0">
+                      <FolderOpen className="h-5 w-5 text-primary shrink-0" />
+                      <span className="truncate">{project.name}</span>
+                    </CardTitle>
+                    <div className="flex items-center gap-1 ml-2 shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={(e) => openEdit(e, project)}
+                        title={t("common.edit")}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive hover:text-destructive"
+                        onClick={(e) => openDelete(e, project.id)}
+                        title={t("common.delete")}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
                   {project.description && (
                     <CardDescription className="line-clamp-2">{project.description}</CardDescription>
                   )}
@@ -151,6 +208,54 @@ export default function ProjectsPage() {
           ))}
         </div>
       )}
+
+      {/* Edit Dialog */}
+      <Dialog open={!!editingProject} onOpenChange={(open) => { if (!open) setEditingProject(null); }}>
+        <DialogContent>
+          <form onSubmit={editForm.handleSubmit(onEditProject)}>
+            <DialogHeader>
+              <DialogTitle>{t("common.edit")} {t("projects.title").toLowerCase()}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-name">{t("projects.name")}</Label>
+                <Input id="edit-name" {...editForm.register("name")} />
+                {editForm.formState.errors.name && (
+                  <p className="text-sm text-destructive">{editForm.formState.errors.name.message}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-description">{t("common.description")}</Label>
+                <Textarea id="edit-description" {...editForm.register("description")} />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setEditingProject(null)}>
+                {t("common.cancel")}
+              </Button>
+              <Button type="submit">{t("common.save")}</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!deletingProject} onOpenChange={(open) => { if (!open) setDeletingProject(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("common.delete")} {t("projects.title").toLowerCase()}</DialogTitle>
+            <DialogDescription>{t("projects.deleteConfirm")}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setDeletingProject(null)}>
+              {t("common.cancel")}
+            </Button>
+            <Button type="button" variant="destructive" onClick={onDeleteProject}>
+              {t("common.delete")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

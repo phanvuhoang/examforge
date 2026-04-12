@@ -49,7 +49,7 @@ export default function LoginPage() {
           </Link>
         </CardDescription>
       </CardHeader>
-      <form onSubmit={handleSubmit} method="POST" action="#">
+      <form onSubmit={handleSubmit}>
         <CardContent className="space-y-4">
           {error && (
             <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
@@ -71,7 +71,7 @@ export default function LoginPage() {
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label htmlFor="password">{t("auth.password")}</Label>
-              <Link href="#" className="text-sm text-primary hover:underline">
+              <Link href="#" className="text-sm text-primary hover:underline" tabIndex={-1}>
                 {t("auth.forgotPassword")}
               </Link>
             </div>
@@ -90,20 +90,6 @@ export default function LoginPage() {
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {t("auth.login")}
           </Button>
-          <div className="relative w-full">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-card px-2 text-muted-foreground">
-                {t("auth.orContinueWith")}
-              </span>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4 w-full">
-            <Button variant="outline" type="button">Google</Button>
-            <Button variant="outline" type="button">GitHub</Button>
-          </div>
         </CardFooter>
       </form>
     </Card>
