@@ -6,27 +6,45 @@ import { useTranslations } from "next-intl";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import api from "@/lib/api";
-import { DashboardStats } from "@/types";
-import { formatDate } from "@/lib/utils";
 import { BookOpen, ClipboardList, Users, Activity, Plus, Upload, FileText, Loader2 } from "lucide-react";
+
+interface DashboardData {
+  users: number;
+  projects: number;
+  questions: number;
+  exams: number;
+  attempts: number;
+  ai_generation_jobs: number;
+}
+
+const defaultStats: DashboardData = {
+  users: 0,
+  projects: 0,
+  questions: 0,
+  exams: 0,
+  attempts: 0,
+  ai_generation_jobs: 0,
+};
 
 export default function DashboardPage() {
   const t = useTranslations();
-  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [stats, setStats] = useState<DashboardData>(defaultStats);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
         const { data } = await api.get("/api/admin/dashboard");
-        setStats(data);
-      } catch {
         setStats({
-          total_questions: 0,
-          total_exams: 0,
-          total_attempts: 0,
-          recent_activity: [],
+          users: data.users ?? 0,
+          projects: data.projects ?? 0,
+          questions: data.questions ?? data.total_questions ?? 0,
+          exams: data.exams ?? data.total_exams ?? 0,
+          attempts: data.attempts ?? data.total_attempts ?? 0,
+          ai_generation_jobs: data.ai_generation_jobs ?? 0,
         });
+      } catch {
+        setStats(defaultStats);
       } finally {
         setLoading(false);
       }
@@ -55,7 +73,7 @@ export default function DashboardPage() {
             <BookOpen className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats?.total_questions || 0}</div>
+            <div className="text-2xl font-bold">{stats.questions}</div>
           </CardContent>
         </Card>
         <Card>
@@ -64,7 +82,7 @@ export default function DashboardPage() {
             <ClipboardList className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats?.total_exams || 0}</div>
+            <div className="text-2xl font-bold">{stats.exams}</div>
           </CardContent>
         </Card>
         <Card>
@@ -73,7 +91,7 @@ export default function DashboardPage() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats?.total_attempts || 0}</div>
+            <div className="text-2xl font-bold">{stats.attempts}</div>
           </CardContent>
         </Card>
         <Card>
@@ -104,35 +122,30 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("dashboard.recentActivity")}</CardTitle>
-          <CardDescription>
-            {t("dashboard.title")}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {stats?.recent_activity && stats.recent_activity.length > 0 ? (
-            <div className="space-y-4">
-              {stats.recent_activity.map((activity, index) => (
-                <div key={index} className="flex items-center gap-4">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
-                    <Activity className="h-4 w-4 text-primary" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">{activity.message}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {formatDate(activity.created_at)}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">{t("common.noData")}</p>
-          )}
-        </CardContent>
-      </Card>
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("nav.projects")}</CardTitle>
+            <CardDescription>{stats.projects} {t("nav.projects").toLowerCase()}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button asChild variant="outline" className="w-full">
+              <Link href="/projects">{t("nav.projects")}</Link>
+            </Button>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("nav.users")}</CardTitle>
+            <CardDescription>{stats.users} {t("nav.users").toLowerCase()}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button asChild variant="outline" className="w-full">
+              <Link href="/admin/users">{t("nav.users")}</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

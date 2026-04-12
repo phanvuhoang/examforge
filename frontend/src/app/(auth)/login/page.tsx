@@ -4,9 +4,6 @@ import React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,29 +11,29 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { useAuthStore } from "@/stores/auth-store";
 import { Loader2 } from "lucide-react";
 
-const loginSchema = z.object({
-  email: z.string().email("Email không hợp lệ"),
-  password: z.string().min(1, "Vui lòng nhập mật khẩu"),
-});
-
-type LoginForm = z.infer<typeof loginSchema>;
-
 export default function LoginPage() {
   const t = useTranslations();
   const router = useRouter();
   const { login, isLoading } = useAuthStore();
   const [error, setError] = React.useState<string | null>(null);
+  const [email, setEmail] = React.useState("");
+  const [password, setPassword] = React.useState("");
 
-  const { register, handleSubmit, formState: { errors } } = useForm<LoginForm>({
-    resolver: zodResolver(loginSchema),
-  });
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
 
-  const onSubmit = async (data: LoginForm) => {
+    if (!email || !password) {
+      setError(t("auth.emailRequired"));
+      return;
+    }
+
     setError(null);
     try {
-      await login(data.email, data.password);
+      await login(email, password);
       router.push("/");
-    } catch {
+    } catch (err) {
+      console.error("Login error:", err);
       setError(t("auth.invalidCredentials"));
     }
   };
@@ -52,7 +49,7 @@ export default function LoginPage() {
           </Link>
         </CardDescription>
       </CardHeader>
-      <form onSubmit={handleSubmit(onSubmit)}>
+      <form onSubmit={handleSubmit} method="POST" action="#">
         <CardContent className="space-y-4">
           {error && (
             <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
@@ -65,11 +62,11 @@ export default function LoginPage() {
               id="email"
               type="email"
               placeholder="name@example.com"
-              {...register("email")}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              autoComplete="email"
             />
-            {errors.email && (
-              <p className="text-sm text-destructive">{errors.email.message}</p>
-            )}
           </div>
           <div className="space-y-2">
             <div className="flex items-center justify-between">
@@ -81,11 +78,11 @@ export default function LoginPage() {
             <Input
               id="password"
               type="password"
-              {...register("password")}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              autoComplete="current-password"
             />
-            {errors.password && (
-              <p className="text-sm text-destructive">{errors.password.message}</p>
-            )}
           </div>
         </CardContent>
         <CardFooter className="flex flex-col gap-4">
