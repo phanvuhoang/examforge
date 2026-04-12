@@ -26,20 +26,52 @@ const processQueue = (error: unknown, token: string | null = null) => {
   failedQueue = [];
 };
 
-api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
-  if (typeof window !== 'undefined') {
+// Read access token from localStorage (zustand persist format)
+function getAccessToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
     const stored = localStorage.getItem('auth-storage');
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        const token = parsed?.state?.accessToken;
-        if (token && config.headers) {
-          config.headers.Authorization = `Bearer ${token}`;
-        }
-      } catch {
-        // ignore parse errors
-      }
+    if (!stored) return null;
+    const parsed = JSON.parse(stored);
+    return parsed?.state?.accessToken || null;
+  } catch {
+    return null;
+  }
+}
+
+function getRefreshToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const stored = localStorage.getItem('auth-storage');
+    if (!stored) return null;
+    const parsed = JSON.parse(stored);
+    return parsed?.state?.refreshToken || null;
+  } catch {
+    return null;
+  }
+}
+
+function updateStoredTokens(accessToken: string, refreshToken: string) {
+  if (typeof window === 'undefined') return;
+  try {
+    const stored = localStorage.getItem('auth-storage');
+    if (!stored) return;
+    const parsed = JSON.parse(stored);
+    if (parsed?.state) {
+      parsed.state.accessToken = accessToken;
+      parsed.state.refreshToken = refreshToken;
+      parsed.state.isAuthenticated = true;
+      localStorage.setItem('auth-storage', JSON.stringify(parsed));
     }
+  } catch {
+    // ignore
+  }
+}
+
+api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+  const token = getAccessToken();
+  if (token && config.headers) {
+    config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
@@ -67,10 +99,7 @@ api.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        const stored = localStorage.getItem('auth-storage');
-        if (!stored) throw new Error('No auth storage');
-        const parsed = JSON.parse(stored);
-        const refreshToken = parsed?.state?.refreshToken;
+        const refreshToken = getRefreshToken();
         if (!refreshToken) throw new Error('No refresh token');
 
         const { data } = await axios.post(`${API_BASE_URL}/api/auth/refresh`, {
@@ -80,10 +109,16 @@ api.interceptors.response.use(
         const newAccessToken = data.access_token;
         const newRefreshToken = data.refresh_token;
 
-        // Update zustand persisted storage
-        parsed.state.accessToken = newAccessToken;
-        parsed.state.refreshToken = newRefreshToken;
-        localStorage.setItem('auth-storage', JSON.stringify(parsed));
+        // Update localStorage (zustand persist format)
+        updateStoredTokens(newAccessToken, newRefreshToken);
+
+        // Also update zustand in-memory state if available
+        try {
+          const { useAuthStore } = await import('@/stores/auth-store');
+          useAuthStore.getState().setTokens(newAccessToken, newRefreshToken);
+        } catch {
+          // Store may not be available during SSR
+        }
 
         processQueue(null, newAccessToken);
 
@@ -93,9 +128,9 @@ api.interceptors.response.use(
         return api(originalRequest);
       } catch (refreshError) {
         processQueue(refreshError, null);
-        // Clear auth state on refresh failure
-        localStorage.removeItem('auth-storage');
+        // Only clear auth and redirect if refresh truly failed
         if (typeof window !== 'undefined') {
+          localStorage.removeItem('auth-storage');
           window.location.href = '/login';
         }
         return Promise.reject(refreshError);

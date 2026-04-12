@@ -1,28 +1,16 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
 import { useAuthStore } from "@/stores/auth-store";
 
-function DashboardContent({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar />
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <Topbar />
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6">{children}</main>
-      </div>
-    </div>
-  );
-}
-
 class ErrorBoundary extends React.Component<
-  { children: React.ReactNode; fallback: React.ReactNode },
+  { children: React.ReactNode },
   { hasError: boolean; error: Error | null }
 > {
-  constructor(props: { children: React.ReactNode; fallback: React.ReactNode }) {
+  constructor(props: { children: React.ReactNode }) {
     super(props);
     this.state = { hasError: false, error: null };
   }
@@ -63,47 +51,51 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const { isAuthenticated, user, fetchUser, _hasHydrated } = useAuthStore();
-  const [isReady, setIsReady] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [isAuthed, setIsAuthed] = useState(false);
+  const redirectedRef = useRef(false);
 
   useEffect(() => {
-    if (!_hasHydrated) return;
+    // Pure client-side auth check — read directly from localStorage
+    // This avoids any zustand hydration timing issues
+    const checkAuth = () => {
+      try {
+        const stored = localStorage.getItem("auth-storage");
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          const hasToken = !!parsed?.state?.accessToken;
+          const isAuth = !!parsed?.state?.isAuthenticated;
+          if (hasToken && isAuth) {
+            setIsAuthed(true);
+            setAuthChecked(true);
+            return;
+          }
+        }
+      } catch {
+        // ignore parse errors
+      }
+      // Not authenticated — redirect to login (but only once)
+      if (!redirectedRef.current) {
+        redirectedRef.current = true;
+        router.replace("/login");
+      }
+      setAuthChecked(true);
+    };
 
-    if (!isAuthenticated) {
-      router.replace("/login");
-      return;
+    checkAuth();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Also trigger fetchUser to populate the zustand store
+  const fetchUser = useAuthStore((s) => s.fetchUser);
+  const user = useAuthStore((s) => s.user);
+
+  useEffect(() => {
+    if (isAuthed && !user) {
+      fetchUser();
     }
+  }, [isAuthed, user, fetchUser]);
 
-    // Fetch user data if not loaded yet
-    if (!user) {
-      fetchUser().finally(() => {
-        setIsReady(true);
-      });
-    } else {
-      setIsReady(true);
-    }
-  }, [_hasHydrated, isAuthenticated, user, fetchUser, router]);
-
-  // Waiting for zustand to hydrate from localStorage
-  if (!_hasHydrated) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-      </div>
-    );
-  }
-
-  // Not authenticated — redirecting to login
-  if (!isAuthenticated) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-      </div>
-    );
-  }
-
-  // Authenticated but still loading user data
-  if (!isReady && !user) {
+  if (!authChecked || !isAuthed) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
@@ -112,14 +104,14 @@ export default function DashboardLayout({
   }
 
   return (
-    <ErrorBoundary
-      fallback={
-        <div className="flex h-screen items-center justify-center">
-          <p>Có lỗi xảy ra. Vui lòng tải lại trang.</p>
+    <ErrorBoundary>
+      <div className="flex h-screen overflow-hidden">
+        <Sidebar />
+        <div className="flex flex-1 flex-col overflow-hidden">
+          <Topbar />
+          <main className="flex-1 overflow-y-auto p-4 lg:p-6">{children}</main>
         </div>
-      }
-    >
-      <DashboardContent>{children}</DashboardContent>
+      </div>
     </ErrorBoundary>
   );
 }

@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
-import { headers } from 'next/headers';
 import { NextIntlClientProvider } from 'next-intl';
 import { ThemeProvider } from '@/components/layout/theme-provider';
 import { Toaster } from '@/components/ui/toaster';
@@ -19,11 +18,6 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // Force dynamic rendering — prevents Next.js from caching pages as static HTML.
-  // Without this, static pages get served with s-maxage=31536000 and after redeploy,
-  // stale cached HTML references JS chunks from the old build → white screen.
-  headers();
-
   return (
     <html lang="vi" suppressHydrationWarning>
       <body className={inter.className}>
